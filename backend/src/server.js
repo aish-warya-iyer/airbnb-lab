@@ -6,6 +6,9 @@ require('dotenv').config();
 const { pool } = require('./db');
 
 const app = express();
+console.log("[BOOT] entry:", __filename);
+console.log("[BOOT] CORS_ORIGIN:", process.env.CORS_ORIGIN);
+
 
 app.use(cors({ origin: process.env.CORS_ORIGIN, credentials: true }));
 app.use(express.json());
@@ -32,7 +35,12 @@ app.use(
 );
 
 // routes
-app.use('/', require('./routes/health'));
+app.use('/', require('./routes/health'));      // GET /health
+app.use('/auth', require('./routes/auth'));    // POST /auth/signup|login|logout, GET /auth/me
+app.use('/mock', require('./mock_health'));    // GET /mock/health (optional)
+
+
+
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`API running on http://localhost:${port}`));
