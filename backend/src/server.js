@@ -37,7 +37,6 @@ app.use(
 // routes
 app.use('/', require('./routes/health'));      // GET /health
 app.use('/auth', require('./routes/auth'));    // POST /auth/signup|login|logout, GET /auth/me
-app.use('/mock', require('./mock_health'));    // GET /mock/health (optional)
 
 
 
