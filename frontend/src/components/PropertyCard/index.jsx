@@ -1,8 +1,23 @@
 import { Link } from "react-router-dom";
 
 export default function PropertyCard({ property }) {
-  const { id, _id, title, city, pricePerNight, thumbnail, description } = property || {};
-  const pid = id || _id;
+  if (!property) return null;
+
+  const pid = property.id ?? property._id;
+
+  // 🔹 field fallbacks to support both mock + real backend
+  const img =
+    property.thumbnail_url || property.image || property.thumbnail || null;
+
+  const title = property.title || property.name || "Property";
+  const city =
+    property.city || property.location_city || null;
+  const country = property.country || null;
+
+  const price =
+    property.price_per_night ?? property.pricePerNight ?? property.price ?? null;
+
+  const description = property.description || "";
 
   return (
     <div
@@ -18,18 +33,33 @@ export default function PropertyCard({ property }) {
       <div
         style={{
           height: 180,
-          backgroundImage: `url(${thumbnail})`,
+          backgroundImage: img ? `url(${img})` : "none",
           backgroundSize: "cover",
           backgroundPosition: "center",
+          backgroundColor: "#f5f5f5",
         }}
+        aria-label={title}
+        role="img"
       />
       <div style={{ padding: 12 }}>
         <h3 style={{ margin: "0 0 4px 0", fontSize: 18 }}>{title}</h3>
-        <div style={{ color: "#555", fontSize: 14 }}>{city}</div>
-        <div style={{ marginTop: 6, fontWeight: 600 }}>
-          ${pricePerNight} <span style={{ color: "#777", fontWeight: 400 }}>/night</span>
+        <div style={{ color: "#555", fontSize: 14 }}>
+          {[city, country].filter(Boolean).join(", ")}
         </div>
-        <p style={{ fontSize: 13, color: "#666", marginTop: 8 }}>{description}</p>
+        <div style={{ marginTop: 6, fontWeight: 600 }}>
+          {price != null ? (
+            <>
+              ${price} <span style={{ color: "#777", fontWeight: 400 }}>/night</span>
+            </>
+          ) : (
+            "—"
+          )}
+        </div>
+        {description && (
+          <p style={{ fontSize: 13, color: "#666", marginTop: 8 }}>
+            {description.length > 110 ? `${description.slice(0, 110)}…` : description}
+          </p>
+        )}
         <Link
           to={`/property/${pid}`}
           style={{

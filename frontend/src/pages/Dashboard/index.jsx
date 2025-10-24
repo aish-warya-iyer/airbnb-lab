@@ -1,10 +1,9 @@
-// src/pages/Dashboard/index.jsx
 import useFetch from "../../hooks/useFetch";
-import { getMockProperties } from "../../api/properties";
+import { propertiesApi } from "../../api/properties";
 import PropertyCard from "../../components/PropertyCard";
 
 export default function Dashboard() {
-  const { data, loading, error } = useFetch(getMockProperties, []);
+  const { data, loading, error } = useFetch(propertiesApi.getProperties, []);
 
   if (loading) return <div>Loading properties…</div>;
   if (error) return <div style={{ color: "crimson" }}>Failed to load: {error.message}</div>;
