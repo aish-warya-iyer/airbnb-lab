@@ -12,6 +12,8 @@ console.log("[BOOT] CORS_ORIGIN:", process.env.CORS_ORIGIN);
 
 app.use(cors({ origin: process.env.CORS_ORIGIN, credentials: true }));
 app.use(express.json());
+app.set('etag', false); // disable ETag
+app.use((req,res,next)=>{ res.setHeader('Cache-Control','no-store'); next(); });
 
 // build MySQL session store
 const MySQLStore = MySQLStoreFactory(session);
@@ -34,9 +36,26 @@ app.use(
   })
 );
 
+// optional attachUser normalization
+const attachUser = require('./middleware/attachUser');
+app.use(attachUser);
+
 // routes
 app.use('/', require('./routes/health'));      // GET /health
 app.use('/auth', require('./routes/auth'));    // POST /auth/signup|login|logout, GET /auth/me
+app.use('/properties', require('./routes/properties'));
+app.use('/bookings', require('./routes/bookings'));
+app.use('/favourites', require('./routes/favourites'));
+app.use('/meta', require('./routes/meta'));
+app.use('/profile', require('./routes/profile'));
+
+const path = require('path');
+const imagesDir = path.join(__dirname, '..', 'public', 'images');
+const avatarsDir = path.join(imagesDir, 'avatars');
+const propertiesDir = path.join(imagesDir, 'properties');
+try { require('fs').mkdirSync(avatarsDir, { recursive: true }); } catch {}
+try { require('fs').mkdirSync(propertiesDir, { recursive: true }); } catch {}
+app.use('/images', express.static(imagesDir));
 
 
 

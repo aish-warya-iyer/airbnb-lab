@@ -27,7 +27,13 @@ async function toggleFavourite(traveler_id, property_id) {
 async function listMyFavourites(traveler_id) {
   const [rows] = await pool.query(
     `SELECT f.property_id, f.created_at,
-            p.*, u.name AS owner_name
+            p.*, u.name AS owner_name,
+            (
+              SELECT url FROM property_photos ph
+              WHERE ph.property_id = p.id
+              ORDER BY ph.sort_order ASC, ph.id ASC
+              LIMIT 1
+            ) AS thumbnailUrl
      FROM favourites f
      JOIN properties p ON p.id = f.property_id
      JOIN users u ON u.id = p.owner_id

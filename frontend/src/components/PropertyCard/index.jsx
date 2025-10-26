@@ -1,78 +1,81 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { favouritesApi } from "../../api/favourites";
+import { useToast } from "../Toast";
+import { useState, useCallback } from "react";
 
-export default function PropertyCard({ property }) {
-  if (!property) return null;
+function ratingFromId(id) {
+  const n = Number(id || 0);
+  const x = (n * 9301 + 49297) % 233280; // simple LCG
+  const idx = x % 8; // 0..7 -> 4.0 .. 4.7
+  return (4.0 + idx * 0.1).toFixed(1);
+}
 
-  const pid = property.id ?? property._id;
+export default function PropertyCard({ property, badge }) {
+  const { search } = useLocation();
+  const pid = property?.id ?? property?._id;
 
-  // 🔹 field fallbacks to support both mock + real backend
-  const img =
-    property.thumbnail_url || property.image || property.thumbnail || null;
+  const rawImg = property.thumbnailUrl || property.thumbnail_url || property.image || property.thumbnail || null;
+  const apiBase = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
+  const img = rawImg && String(rawImg).startsWith('/') ? `${apiBase}${rawImg}` : rawImg;
 
   const title = property.title || property.name || "Property";
-  const city =
-    property.city || property.location_city || null;
+  const city = property.city || property.location_city || null;
   const country = property.country || null;
+  const price = property.price_per_night ?? property.pricePerNight ?? property.price ?? null;
+  const [fav, setFav] = useState(Boolean(property?.isFavourited));
+  const rating = ratingFromId(pid);
+  const toast = useToast();
+  const onFav = useCallback(async (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const prev = fav; setFav(!prev);
+    try {
+      await favouritesApi.toggle(pid);
+      if (!prev) {
+        toast?.success?.('Added to favorites');
+      } else {
+        toast?.info?.('Removed from favorites');
+      }
+    } catch { setFav(prev); }
+  }, [fav, pid, toast]);
 
-  const price =
-    property.price_per_night ?? property.pricePerNight ?? property.price ?? null;
+  if (!property) return null;
 
-  const description = property.description || "";
 
   return (
-    <div
-      style={{
-        border: "1px solid #ddd",
-        borderRadius: 16,
-        overflow: "hidden",
-        width: 280,
-        backgroundColor: "white",
-        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-      }}
+    <Link
+      to={{ pathname: `/property/${pid}`, search }}
+      className="group block rounded-2xl overflow-hidden bg-white shadow-card hover:shadow-md transition relative"
+      style={{ textDecoration: 'none', color: 'inherit' }}
     >
-      <div
-        style={{
-          height: 180,
-          backgroundImage: img ? `url(${img})` : "none",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundColor: "#f5f5f5",
-        }}
-        aria-label={title}
-        role="img"
-      />
-      <div style={{ padding: 12 }}>
-        <h3 style={{ margin: "0 0 4px 0", fontSize: 18 }}>{title}</h3>
-        <div style={{ color: "#555", fontSize: 14 }}>
-          {[city, country].filter(Boolean).join(", ")}
-        </div>
-        <div style={{ marginTop: 6, fontWeight: 600 }}>
-          {price != null ? (
-            <>
-              ${price} <span style={{ color: "#777", fontWeight: 400 }}>/night</span>
-            </>
-          ) : (
-            "—"
-          )}
-        </div>
-        {description && (
-          <p style={{ fontSize: 13, color: "#666", marginTop: 8 }}>
-            {description.length > 110 ? `${description.slice(0, 110)}…` : description}
-          </p>
-        )}
-        <Link
-          to={`/property/${pid}`}
-          style={{
-            display: "inline-block",
-            marginTop: 6,
-            textDecoration: "none",
-            color: "#0077cc",
-            fontWeight: 600,
-          }}
+      <div className="relative h-56 w-full bg-gray-100 overflow-hidden">
+        {badge ? (
+          <div className="absolute top-2 left-2 rounded-full bg-white/90 backdrop-blur-sm px-3 py-1 text-xs font-medium text-gray-800 shadow-card">
+            {badge}
+          </div>
+        ) : null}
+        <button
+          aria-label="Favourite"
+          title="Favourite"
+          onClick={onFav}
+          className={`absolute top-2 right-2 w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-card z-30 pointer-events-auto ${fav? 'text-red-600':'text-gray-700'}`}
         >
-          View →
-        </Link>
+          {fav ? '♥' : '♡'}
+        </button>
+        {img ? (
+          <img src={img} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform z-0" />
+        ) : null}
       </div>
-    </div>
+      <div className="p-3">
+        <div className="font-semibold text-gray-900">{title}</div>
+        <div className="text-sm text-gray-600">{[city, country].filter(Boolean).join(", ")}</div>
+        <div className="mt-1 flex items-center justify-between">
+          <div className="font-semibold">{price != null ? (<><span>${price}</span><span className="text-gray-600 font-normal"> /night</span></>) : '—'}</div>
+          <div className="flex items-center gap-1 text-sm text-gray-700 mr-4">
+            <span className="text-yellow-500">★</span>
+            <span className="font-medium">{rating}</span>
+          </div>
+        </div>
+      </div>
+    </Link>
   );
 }

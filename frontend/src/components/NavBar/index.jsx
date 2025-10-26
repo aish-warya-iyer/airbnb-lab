@@ -1,24 +1,53 @@
-// src/components/NavBar/index.jsx
-import { NavLink } from "react-router-dom";
-
-const linkStyle = ({ isActive }) => ({
-  marginRight: 12,
-  textDecoration: "none",
-  fontWeight: isActive ? 700 : 500,
-});
+import { NavLink, Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 export default function NavBar() {
+  const { user, logout, loading } = useAuth();
+  const nav = useNavigate();
+
+  const onLogout = async () => { const { ok } = await logout(); if (ok) nav('/'); };
+
   return (
-    <nav style={{ padding: 12, borderBottom: "1px solid #eee" }}>
-      <NavLink to="/" style={linkStyle}>Home</NavLink>
-      <NavLink to="/favorites" style={linkStyle}>Favorites</NavLink>
-      <NavLink to="/bookings" style={linkStyle}>Bookings</NavLink>
-      <NavLink to="/profile" style={linkStyle}>Profile</NavLink>
-      <NavLink to="/owner/dashboard" style={linkStyle}>Owner</NavLink>
-      <span style={{ float: "right" }}>
-        <NavLink to="/login" style={linkStyle}>Login</NavLink>
-        <NavLink to="/signup" style={linkStyle}>Sign Up</NavLink>
-      </span>
-    </nav>
+    <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-gray-200">
+      <div className="max-w-[1200px] mx-auto px-4 md:px-6 lg:px-8 py-3 grid grid-cols-[1fr_auto_1fr] items-center">
+        <div className="justify-self-start">
+          <Link to="/" className="text-primary font-extrabold text-xl" onClick={(e)=>{ e.preventDefault(); nav('/'); }}>
+            Airbnb
+          </Link>
+        </div>
+
+        <nav className="hidden md:flex items-center gap-6 justify-self-center">
+          <NavLink to="/" className={({isActive})=>`inline-flex items-center h-9 text-sm font-medium ${isActive ? 'text-gray-900 border-b-2 border-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>Homes</NavLink>
+        </nav>
+
+        <div className="justify-self-end flex items-center gap-2">
+          {user && (
+            <div className="hidden md:flex items-center gap-2 mr-2 text-sm text-gray-600">
+              <span className="inline-flex items-center h-9 px-3 rounded-full bg-gray-100">{user.role === 'owner' ? 'Owner' : 'Traveler'}</span>
+              {user.role === 'owner' && (
+                <NavLink to="/owner/dashboard" className={({isActive})=>`inline-flex items-center h-9 px-3 rounded-full text-sm font-medium ${isActive? 'border bg-white' : 'border border-transparent hover:border-gray-200'}`}>Owner dashboard</NavLink>
+              )}
+              {user.role !== 'owner' && (
+                <>
+                  <NavLink to="/favorites" className={({isActive})=>`inline-flex items-center h-9 px-3 rounded-full text-sm font-medium ${isActive? 'border bg-white' : 'border border-transparent hover:border-gray-200'}`}>My Favorites</NavLink>
+                  <NavLink to="/bookings" className={({isActive})=>`inline-flex items-center h-9 px-3 rounded-full text-sm font-medium ${isActive? 'border bg-white' : 'border border-transparent hover:border-gray-200'}`}>My Trips</NavLink>
+                </>
+              )}
+            </div>
+          )}
+          {loading ? null : user ? (
+            <div className="flex items-center gap-2">
+              <NavLink to="/profile" className={({isActive})=>`inline-flex items-center h-9 px-3 rounded-full text-sm font-medium ${isActive? 'border bg-white' : 'border border-transparent hover:border-gray-200'}`}>{user.name?.split(' ')?.[0] ? `Hi, ${user.name.split(' ')[0]}` : (user.firstName ? `Hi, ${user.firstName}` : user.email)}</NavLink>
+              <button onClick={onLogout} className="inline-flex items-center h-9 px-3 rounded-full border border-gray-900 bg-gray-900 text-white text-sm font-semibold">Log out</button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <NavLink to="/login" className={({isActive})=>`inline-flex items-center h-9 px-3 rounded-full text-sm font-medium ${isActive? 'border bg-white' : 'border border-transparent hover:border-gray-200'}`}>Log in</NavLink>
+              <NavLink to="/signup" className={({isActive})=>`inline-flex items-center h-9 px-3 rounded-full text-sm font-medium ${isActive? 'border bg-white' : 'border border-transparent hover:border-gray-200'}`}>Sign up</NavLink>
+            </div>
+          )}
+        </div>
+      </div>
+    </header>
   );
 }
