@@ -1,4 +1,4 @@
-// src/routes/auth.js
+// backend/src/routes/auth.js
 const { Router } = require('express');
 const bcrypt = require('bcryptjs');
 const { findUserByEmail, findUserById, createUser } = require('../models/user.model');
@@ -12,7 +12,6 @@ const router = Router();
 router.post('/signup', async (req, res) => {
   try {
     const { name, email, password, role } = req.body || {};
-
     if (!name || !email || !password || !role) {
       return res.status(400).json({ error: 'name, email, password, and role are required' });
     }
@@ -23,9 +22,14 @@ router.post('/signup', async (req, res) => {
     const password_hash = await bcrypt.hash(password, 12);
     const user = await createUser({ name, email, role, password_hash });
 
-    // Start session
+    // ✅ Save full user object in session (preferred)
+    const first_name = String(user.name || '').split(' ')[0] || user.name;
+    req.session.user = { id: user.id, role: user.role, name: user.name, first_name, email: user.email };
+    // (optional backward-compat)
     req.session.userId = user.id;
-    res.status(201).json({ user });
+    req.session.role = user.role;
+
+    res.status(201).json({ user: req.session.user });
   } catch (err) {
     console.error('Signup error:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -39,8 +43,9 @@ router.post('/signup', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body || {};
-    if (!email || !password)
+    if (!email || !password) {
       return res.status(400).json({ error: 'email and password are required' });
+    }
 
     const user = await findUserByEmail(email);
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
@@ -48,15 +53,14 @@ router.post('/login', async (req, res) => {
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
 
+    // ✅ Save full user object in session (preferred)
+    const first_name = String(user.name || '').split(' ')[0] || user.name;
+    req.session.user = { id: user.id, role: user.role, name: user.name, first_name, email: user.email };
+    // (optional backward-compat)
     req.session.userId = user.id;
-    res.json({
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    });
+    req.session.role = user.role;
+
+    res.json({ user: req.session.user });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -79,9 +83,16 @@ router.post('/logout', (req, res) => {
  * Returns the currently logged-in user
  */
 router.get('/me', async (req, res) => {
-  if (!req.session.userId) return res.status(401).json({ user: null });
-  const user = await findUserById(req.session.userId);
-  res.json({ user });
+  // Prefer the full session user object
+  const sessUser = req.session?.user;
+  if (!sessUser) return res.status(401).json({ user: null });
+
+  // Optional: re-fetch from DB if you want freshest fields
+  // const fresh = await findUserById(sessUser.id);
+  // return res.json({ user: fresh ? { id: fresh.id, role: fresh.role, name: fresh.name, email: fresh.email } : null });
+
+  const first_name = sessUser.first_name || (sessUser.name ? String(sessUser.name).split(' ')[0] : undefined);
+  return res.json({ user: { ...sessUser, first_name } });
 });
 
 module.exports = router;

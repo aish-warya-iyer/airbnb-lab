@@ -8,3 +8,23 @@ dist/
 Thumbs.db
 .vscode/
 cookies.txt
+
+# ignore node modules
+backend/node_modules/
+frontend/node_modules/
+
+
+# deps & env
+backend/node_modules/
+frontend/node_modules/
+backend/.env
+frontend/.env
+*.env
+
+# deps & env
+backend/node_modules/
+frontend/node_modules/
+node_modules/
+backend/.env
+frontend/.env
+*.env

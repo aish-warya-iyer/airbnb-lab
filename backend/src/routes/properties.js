@@ -3,19 +3,28 @@ const { Router } = require('express');
 const requireAuth = require('../middleware/requireAuth');
 const requireRole = require('../middleware/requireRole');
 const propertyModel = require('../models/property.model'); // single import
+const { pool } = require('../db');
+const multer = require('multer');
+const path = require('path');
 
 const router = Router();
 
 // One-time debug: confirm we see the functions
 // eslint-disable-next-line no-console
-console.log('[router sees model keys]', Object.keys(propertyModel));
+if (process.env.NODE_ENV !== 'production') {
+  // eslint-disable-next-line no-console
+  console.log('[router sees model keys]', Object.keys(propertyModel));
+}
 
 /** Public: list/search */
 router.get('/', async (req, res) => {
   try {
-    const { city, country } = req.query;
-    const rows = await propertyModel.listProperties({ city, country });
-    res.json({ properties: rows });
+    const { q, city, country, min_price, max_price, type, sort, page, page_size } = req.query;
+    // Support `q` as alias for city/name/country search (frontend spec)
+    const viewer_id = req.user?.id || null;
+    const rows = await propertyModel.listProperties({ city: city || q, country, min_price, max_price, type, sort, page, page_size, viewer_id });
+    const total = await propertyModel.countProperties({ city: city || q, country, min_price, max_price, type });
+    res.json({ properties: rows, total });
   } catch (err) {
     console.error('GET /properties error:', err);
     res.status(500).json({ error: 'Failed to fetch properties' });
@@ -61,4 +70,60 @@ router.post('/', requireAuth, requireRole('owner'), async (req, res) => {
   }
 });
 
+// Owner-only: toggle availability of a property they own
+router.patch('/:id/availability', requireAuth, requireRole('owner'), async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { is_available } = req.body || {};
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'Invalid property id' });
+    const val = Number(Boolean(is_available));
+    const [result] = await pool.query(`UPDATE properties SET is_available = ? WHERE id = ? AND owner_id = ?`, [val, id, req.user.id]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Property not found' });
+    res.json({ ok: true, is_available: val });
+  } catch (err) {
+    console.error('PATCH /properties/:id/availability error:', err);
+    res.status(500).json({ error: 'Failed to update availability' });
+  }
+});
+
+/** Owner-only: delete property */
+router.delete('/:id', requireAuth, requireRole('owner'), async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'Invalid property id' });
+    const ok = await propertyModel.deleteProperty({ id, owner_id: req.user.id });
+    if (!ok) return res.status(404).json({ error: 'Property not found' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('DELETE /properties/:id error:', err);
+    res.status(500).json({ error: 'Failed to delete property' });
+  }
+});
+
 module.exports = router;
+
+// --- Owner photo upload (store under backend/public/images/properties)
+const uploadDir = path.join(__dirname, '..', '..', 'public', 'images', 'properties');
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const name = `${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
+    cb(null, name);
+  },
+});
+const upload = multer({ storage });
+
+router.post('/owner/:id/photos', requireAuth, requireRole('owner'), upload.single('photo'), async (req, res) => {
+  try {
+    const propId = Number(req.params.id);
+    if (!Number.isFinite(propId) || propId <= 0) return res.status(400).json({ error: 'Invalid property id' });
+    // Save rel url in property_photos
+    const rel = `/images/properties/${req.file.filename}`;
+    await pool.query(`INSERT INTO property_photos (property_id, url, sort_order) VALUES (?,?,?)`, [propId, rel, 0]);
+    res.json({ url: rel });
+  } catch (e) {
+    console.error('photo upload error', e);
+    res.status(500).json({ error: 'Failed to upload photo' });
+  }
+});
