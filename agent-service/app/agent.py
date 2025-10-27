@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import List, Dict
+import random
 from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage
 
@@ -139,6 +140,21 @@ def allocate_blocks(per_day_items: List[dict]):
         else: blocks["evening"].append(item)
     return blocks
 
+def _restaurants_as_activities(restaurants: List[Dict]) -> List[Dict]:
+    out: List[Dict] = []
+    for r in restaurants or []:
+        out.append({
+            "title": r.get("title", "Restaurant"),
+            "address": r.get("address", ""),
+            "geo": r.get("geo", (0.0, 0.0)),
+            "price_tier": r.get("price_tier", "$$"),
+            "duration_minutes": 75,  # typical meal duration
+            "tags": r.get("tags", ["restaurant"]),
+            "wheelchair_friendly": True,
+            "child_friendly": True,
+        })
+    return out
+
 def build_plan(booking, preferences, ask, db_session):
     overrides = parse_free_text(ask) if ask else {}
     interests = overrides.get("interests") or preferences.interests
@@ -166,16 +182,41 @@ def build_plan(booking, preferences, ask, db_session):
         "child_friendly": True,
     } for e in events]
 
-    pool = (pois + event_cards)[:36]
-    itinerary = []
-    idx = 0
-    for d in daterange(booking.start_date, booking.end_date):
-        day_items = pool[idx:idx+3] or pool[:3] or []
-        idx += 3
-        itinerary.append({
-            "date": d.isoformat(),
-            "blocks": allocate_blocks(day_items)
-        })
+    # Build a richer pool: POIs + events + a subset of restaurants as activities
+    activity_restaurants = _restaurants_as_activities(restaurants)
+    combined_pool = pois + event_cards + activity_restaurants
+
+    # Cap to a reasonable size to avoid overly large itineraries
+    if len(combined_pool) > 60:
+        combined_pool = combined_pool[:60]
+
+    itinerary: List[Dict] = []
+    days = list(daterange(booking.start_date, booking.end_date))
+    items_per_day = 3
+
+    if not combined_pool:
+        for d in days:
+            itinerary.append({
+                "date": d.isoformat(),
+                "blocks": allocate_blocks([])
+            })
+    else:
+        # Shuffle once, then create cycles; repeats only after the whole pool is used
+        base_pool = combined_pool[:]
+        random.shuffle(base_pool)
+        needed = len(days) * items_per_day
+        sequence: List[Dict] = []
+        while len(sequence) < needed:
+            # add a full non-repeating pass
+            sequence.extend(random.sample(base_pool, k=len(base_pool)))
+
+        for i, d in enumerate(days):
+            start = i * items_per_day
+            day_slice = sequence[start:start+items_per_day]
+            itinerary.append({
+                "date": d.isoformat(),
+                "blocks": allocate_blocks(day_slice)
+            })
 
     note_bits = [f"Auto-fetched within {settings.radius_km}–{settings.max_radius_km}km of {booking.location} (OSM)."]
     if not pois:
