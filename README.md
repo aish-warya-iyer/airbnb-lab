@@ -321,7 +321,3 @@ REACT_APP_API_BASE=http://localhost:3000
 | `Module 'nodemon' not found` | Run `npm i -D nodemon`                      |
 | Python module missing        | Run `pip install -r requirements.txt` again |
 
----
-
-It can make your README look more professional visually.
-```
