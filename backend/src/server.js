@@ -10,7 +10,19 @@ console.log("[BOOT] entry:", __filename);
 console.log("[BOOT] CORS_ORIGIN:", process.env.CORS_ORIGIN);
 
 
-app.use(cors({ origin: process.env.CORS_ORIGIN, credentials: true }));
+// Support multiple origins via comma-separated CORS_ORIGIN, with safe localhost defaults
+const allowedOrigins = (process.env.CORS_ORIGIN && process.env.CORS_ORIGIN.trim())
+  ? process.env.CORS_ORIGIN.split(',').map((s) => s.trim()).filter(Boolean)
+  : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // allow server-to-server or curl
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
 app.use(express.json());
 app.set('etag', false); // disable ETag
 app.use((req,res,next)=>{ res.setHeader('Cache-Control','no-store'); next(); });
