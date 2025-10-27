@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { propertiesApi } from "../../api/properties";
 import PropertyCard from "../../components/PropertyCard";
-import FabAgentButton from "../../components/Agent/FabAgentButton";
 import SearchBar from "../../components/SearchBar";
 
 export default function Dashboard() {
@@ -29,7 +28,6 @@ export default function Dashboard() {
   }, [q, guests, page]);
 
   const pages = Math.min(5, Math.max(1, Math.ceil((total || 0)/20)));
-  const [ , setParams ] = [sp, useNavigate()];
 
   return (
     <div>
@@ -54,7 +52,7 @@ export default function Dashboard() {
           ))}
         </div>
       )}
-      <FabAgentButton />
+      {/* Agent FAB removed; AgentWidget button is used globally */}
     </div>
   );
 }

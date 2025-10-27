@@ -8,7 +8,7 @@ export default function NavBar() {
   const onLogout = async () => { const { ok } = await logout(); if (ok) nav('/'); };
 
   return (
-    <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-gray-200">
+    <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-200">
       <div className="max-w-[1200px] mx-auto px-4 md:px-6 lg:px-8 py-3 grid grid-cols-[1fr_auto_1fr] items-center">
         <div className="justify-self-start">
           <Link to="/" className="inline-flex items-center gap-2 text-primary font-extrabold text-xl" onClick={(e)=>{ e.preventDefault(); nav('/'); }}>

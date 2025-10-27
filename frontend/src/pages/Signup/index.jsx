@@ -15,6 +15,7 @@ export default function SignupPage(){
   const onSubmit = async (e) => {
     e.preventDefault(); setError('');
     const name = `${firstName} ${lastName}`.trim();
+    if (String(password).length < 6) { setError('Password must be at least 6 characters'); return; }
     const res = await signup({ name, email, password, role, firstName, lastName });
     if (res?.ok) {
       nav('/', { replace: true });

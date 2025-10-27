@@ -70,6 +70,7 @@ async function listBookingsForOwner(owner_id) {
       p.name AS property_name,
       p.location_city AS city,
       p.country,
+      p.price_per_night,
       u.name  AS traveler_name,
       u.email AS traveler_email,
       (

@@ -218,10 +218,40 @@ module.exports = {
   getProperty,
   listMyProperties,
   countProperties,
+  updateProperty,
 };
 
 // Debug: show what we export when required
 if (require.main !== module) {
   // eslint-disable-next-line no-console
   console.log('[property.model exports]', Object.keys(module.exports));
+}
+
+/** Update property (owner only, route validates ownership separately) */
+async function updateProperty({ id, owner_id, data }) {
+  const fields = [];
+  const params = [];
+  const allowed = ['name','type','location_city','location_state','country','bedrooms','bathrooms','capacity','amenities','price_per_night','description','is_available'];
+  for (const k of allowed) {
+    if (Object.prototype.hasOwnProperty.call(data, k)) {
+      if (k === 'amenities' && data[k] != null && typeof data[k] !== 'string') {
+        fields.push(`${k} = ?`); params.push(JSON.stringify(data[k]));
+      } else {
+        fields.push(`${k} = ?`); params.push(data[k]);
+      }
+    }
+  }
+  if (!fields.length) return await getProperty(id);
+  // normalize dependent fields
+  if (!('bathrooms' in data) && 'bedrooms' in data) {
+    fields.push('bathrooms = ?'); params.push(calculateBathrooms(data.bedrooms));
+  }
+  if (!('capacity' in data) && 'bedrooms' in data) {
+    fields.push('capacity = ?'); params.push(calculateCapacity(data.bedrooms, data.capacity));
+  }
+  params.push(id, owner_id);
+  const sql = `UPDATE properties SET ${fields.join(', ')} WHERE id = ? AND owner_id = ?`;
+  const [r] = await pool.query(sql, params);
+  if (r.affectedRows === 0) return null;
+  return await getProperty(id);
 }

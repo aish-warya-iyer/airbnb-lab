@@ -9,5 +9,20 @@ Thumbs.db
 .vscode/
 cookies.txt
 
+# Python virtual envs and caches
+.venv/
+**/.venv/
+venv/
+**/venv/
+env/
+**/env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local databases (e.g., dev SQLite)
+*.db
+
 
 

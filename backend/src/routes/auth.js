@@ -17,6 +17,10 @@ router.post('/signup', async (req, res) => {
       return res.status(400).json({ error: 'name, email, password, and role are required' });
     }
 
+    if (String(password || '').length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
     const existing = await findUserByEmail(email);
     if (existing) return res.status(409).json({ error: 'Email already registered' });
 

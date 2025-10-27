@@ -66,6 +66,20 @@ router.post('/', requireAuth, requireRole('owner'), async (req, res) => {
   }
 });
 
+/** Owner-only: update property */
+router.patch('/:id', requireAuth, requireRole('owner'), async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'Invalid property id' });
+    const prop = await propertyModel.updateProperty({ id, owner_id: req.user.id, data: req.body || {} });
+    if (!prop) return res.status(404).json({ error: 'Property not found' });
+    res.json({ property: prop });
+  } catch (err) {
+    console.error('PATCH /properties/:id error:', err);
+    res.status(500).json({ error: 'Failed to update property' });
+  }
+});
+
 module.exports = router;
 
 // --- Owner photo upload (store under backend/public/images/properties)

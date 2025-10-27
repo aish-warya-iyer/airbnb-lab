@@ -1,4 +1,7 @@
-const BASE = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
+const BASE =
+  process.env.NODE_ENV === 'development'
+    ? ''
+    : (process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000');
 
 async function jfetch(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {

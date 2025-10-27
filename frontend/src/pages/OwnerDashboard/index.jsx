@@ -16,7 +16,20 @@ export default function OwnerDashboardPage(){
   const [photoFile, setPhotoFile] = useState(null);
   const [tab, setTab] = useState('mine'); // mine | new | requests | history
   const [bookings, setBookings] = useState([]);
+  const [edit, setEdit] = useState(null); // property being edited
   const toast = useToast();
+
+  const toYmd = (s) => {
+    if (!s) return '';
+    const str = String(s);
+    if (str.length >= 10) return str.slice(0,10);
+    try { const d = new Date(str); const mm = String(d.getMonth()+1).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); return `${d.getFullYear()}-${mm}-${dd}`; } catch { return str; }
+  };
+  const nightsBetween = (start, end) => {
+    if (!start || !end) return 0;
+    const n = Math.ceil((new Date(end) - new Date(start)) / (1000*60*60*24));
+    return n > 0 ? n : 0;
+  };
 
   useEffect(()=>{ (async()=>{ try{ setLoading(true); const res = await request('/properties/me/mine'); setRows(res.properties||[]);} finally{ setLoading(false);} })(); },[]);
   useEffect(()=>{ (async()=>{ try{ setCountries(await getCountries()); setAmenities(await getAmenitiesCatalog()); } catch{} })(); },[]);
@@ -88,6 +101,7 @@ export default function OwnerDashboardPage(){
                 <div key={p.id} className="space-y-2">
                   <PropertyCard property={{ id:p.id, name:p.name, title:p.name, location_city:p.location_city, country:p.country, thumbnailUrl:p.thumbnailUrl, price_per_night:p.price_per_night }} badge="Owned by you" />
                   <div className="flex items-center gap-2">
+                    <button className="px-3 py-1 rounded-full border" onClick={()=>setEdit({ ...p })}>Edit</button>
                     <button className="px-3 py-1 rounded-full border" onClick={async()=>{ const next = p.is_available? 0: 1; try { await propertiesApi.setAvailability(p.id, next); setRows(rs => rs.map(r=> r.id===p.id? { ...r, is_available: next }: r)); } catch {} }}> {p.is_available? 'Set Unavailable':'Set Available'} </button>
                     <button className="px-3 py-1 rounded-full border border-red-600 text-red-700" onClick={async()=>{ if (!window.confirm('Remove this property?')) return; try { await propertiesApi.remove(p.id); setRows(rs => rs.filter(r=>r.id!==p.id)); } catch {} }}>Remove</button>
                   </div>
@@ -95,6 +109,25 @@ export default function OwnerDashboardPage(){
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {edit && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" role="dialog" aria-modal>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg">
+            <div className="text-lg font-semibold mb-3">Edit property</div>
+            <form onSubmit={async (e)=>{ e.preventDefault(); try { const body = { name: edit.name, type: edit.type, location_city: edit.location_city, country: edit.country, price_per_night: edit.price_per_night, description: edit.description }; await propertiesApi.update(edit.id, body); setRows(rs => rs.map(r => r.id===edit.id ? { ...r, ...body } : r)); setEdit(null); } catch(err){ alert(err.message||'Update failed'); } }} className="grid gap-3">
+              <label className="text-sm">Title<input className="block w-full border border-gray-300 rounded-xl p-2" value={edit.name||''} onChange={e=>setEdit({...edit, name:e.target.value})} /></label>
+              <label className="text-sm">City<input className="block w-full border border-gray-300 rounded-xl p-2" value={edit.location_city||''} onChange={e=>setEdit({...edit, location_city:e.target.value})} /></label>
+              <label className="text-sm">Country<input className="block w-full border border-gray-300 rounded-xl p-2" value={edit.country||''} onChange={e=>setEdit({...edit, country:e.target.value})} /></label>
+              <label className="text-sm">Price per night<input type="number" className="block w-full border border-gray-300 rounded-xl p-2" value={edit.price_per_night||''} onChange={e=>setEdit({...edit, price_per_night:e.target.value})} /></label>
+              <label className="text-sm">Description<textarea rows={4} className="block w-full border border-gray-300 rounded-xl p-2" value={edit.description||''} onChange={e=>setEdit({...edit, description:e.target.value})} /></label>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" className="px-3 py-1 rounded-full border" onClick={()=>setEdit(null)}>Cancel</button>
+                <button type="submit" className="px-3 py-1 rounded-full border bg-gray-900 text-white">Save</button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
@@ -107,7 +140,16 @@ export default function OwnerDashboardPage(){
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {pending.map(b => (
                 <div key={b.id} className="space-y-2">
-                  <PropertyCard property={toProp(b)} />
+                  <PropertyCard property={toProp(b)} badge="Booking request" hideFavourite />
+                  <div className="text-sm text-gray-700">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200">{toYmd(b.start_date)} → {toYmd(b.end_date)}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200">{b.guests} {b.guests>1?'guests':'guest'}</span>
+                    </div>
+                    {(() => { const nights = nightsBetween(b.start_date, b.end_date); const ppn = Number(b.price_per_night || 0); return (nights>0 && ppn>0) ? (
+                      <div className="mt-2"><span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 whitespace-nowrap">${(nights*ppn).toFixed(2)} total</span></div>
+                    ) : null; })()}
+                  </div>
                   <div className="flex items-center gap-2">
                     <button className="px-3 py-1 rounded-full text-white" style={{ background:'#FF385C' }} onClick={()=>onStatus(b.id, 'ACCEPTED')}>Accept</button>
                     <button className="px-3 py-1 rounded-full border" onClick={()=>onStatus(b.id, 'CANCELLED')}>Cancel</button>
@@ -126,7 +168,16 @@ export default function OwnerDashboardPage(){
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {accepted.map(b => (
                 <div key={b.id} className="space-y-2">
-                  <PropertyCard property={toProp(b)} />
+                  <PropertyCard property={toProp(b)} hideFavourite />
+                  <div className="text-sm text-gray-700">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200">{toYmd(b.start_date)} → {toYmd(b.end_date)}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200">{b.guests} {b.guests>1?'guests':'guest'}</span>
+                    </div>
+                    {(() => { const nights = nightsBetween(b.start_date, b.end_date); const ppn = Number(b.price_per_night || 0); return (nights>0 && ppn>0) ? (
+                      <div className="mt-2"><span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 whitespace-nowrap">${(nights*ppn).toFixed(2)} total</span></div>
+                    ) : null; })()}
+                  </div>
                   <div className="flex items-center gap-2">
                     <button className="px-3 py-1 rounded-full border" onClick={()=>onStatus(b.id, 'CANCELLED')}>Cancel</button>
                   </div>
@@ -140,8 +191,16 @@ export default function OwnerDashboardPage(){
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {cancelled.map(b => (
                 <div key={b.id} className="space-y-2">
-                  <PropertyCard property={toProp(b)} />
-                  <div className="text-sm text-gray-600">{b.start_date} → {b.end_date} · {b.guests} guests</div>
+                  <PropertyCard property={toProp(b)} hideFavourite />
+                  <div className="text-sm text-gray-700">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200">{toYmd(b.start_date)} → {toYmd(b.end_date)}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200">{b.guests} {b.guests>1?'guests':'guest'}</span>
+                    </div>
+                    {(() => { const nights = nightsBetween(b.start_date, b.end_date); const ppn = Number(b.price_per_night || 0); return (nights>0 && ppn>0) ? (
+                      <div className="mt-2"><span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 whitespace-nowrap">${(nights*ppn).toFixed(2)} total</span></div>
+                    ) : null; })()}
+                  </div>
                 </div>
               ))}
             </div>

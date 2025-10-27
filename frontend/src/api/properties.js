@@ -16,6 +16,16 @@ export const propertiesApi = {
     const res = await apiGet(url);
     return res; // { properties, total }
   },
+  update: async (id, body) => {
+    const res = await fetch(`${BASE}/properties/${id}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {}),
+    });
+    if (!res.ok) throw new Error(`Update failed (${res.status})`);
+    return res.json();
+  },
   getPropertyById: async (id) => {
     const res = await apiGet(`/properties/${id}`);
     return res?.property ?? res;

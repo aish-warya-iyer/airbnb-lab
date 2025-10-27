@@ -1,8 +1,5 @@
 // src/api/client.js
-const API_BASE_URL =
-  process.env.NODE_ENV === 'development'
-    ? '' // use CRA proxy to backend
-    : (process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000');
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
 const MOCK_PREFIX  = process.env.REACT_APP_MOCK_PREFIX  || "/mock";
 
 export async function apiGet(path, { mock = false, init } = {}) {

@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { favouritesApi } from "../../api/favourites";
 import { useToast } from "../Toast";
 import { useState, useCallback } from "react";
+import { useAuth } from "../../context/AuthContext";
 
 function ratingFromId(id) {
   const n = Number(id || 0);
@@ -10,8 +11,9 @@ function ratingFromId(id) {
   return (4.0 + idx * 0.1).toFixed(1);
 }
 
-export default function PropertyCard({ property, badge }) {
+export default function PropertyCard({ property, badge, hideFavourite = false }) {
   const { search } = useLocation();
+  const { user } = useAuth();
   const pid = property?.id ?? property?._id;
 
   const rawImg = property.thumbnailUrl || property.thumbnail_url || property.image || property.thumbnail || null;
@@ -21,7 +23,17 @@ export default function PropertyCard({ property, badge }) {
   const title = property.title || property.name || "Property";
   const city = property.city || property.location_city || null;
   const country = property.country || null;
-  const price = property.price_per_night ?? property.pricePerNight ?? property.price ?? null;
+  const priceCandidates = [
+    property.price_per_night,
+    property.pricePerNight,
+    property.unit_price,
+    property.unitPrice,
+    property.price,
+  ];
+  let price = null;
+  for (const c of priceCandidates) {
+    if (c != null && c !== '') { price = c; break; }
+  }
   const [fav, setFav] = useState(Boolean(property?.isFavourited));
   const rating = ratingFromId(pid);
   const toast = useToast();
@@ -53,14 +65,16 @@ export default function PropertyCard({ property, badge }) {
             {badge}
           </div>
         ) : null}
-        <button
-          aria-label="Favourite"
-          title="Favourite"
-          onClick={onFav}
-          className={`absolute top-2 right-2 w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-card z-30 pointer-events-auto ${fav? 'text-red-600':'text-gray-700'}`}
-        >
-          {fav ? '♥' : '♡'}
-        </button>
+        {(!hideFavourite && user?.role !== 'owner') && (
+          <button
+            aria-label="Favourite"
+            title="Favourite"
+            onClick={onFav}
+            className={`absolute top-2 right-2 w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-card z-30 pointer-events-auto ${fav? 'text-red-600':'text-gray-700'}`}
+          >
+            {fav ? '♥' : '♡'}
+          </button>
+        )}
         {img ? (
           <img src={img} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform z-0" />
         ) : null}
